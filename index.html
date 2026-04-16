@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Snake</title>
+  <style>
+    :root{--bg:#0b1020;--panel:#111a33;--text:#e8f0ff;--accent:#7cf7c2;--danger:#ff6b6b}
+    body{margin:0;font-family:system-ui,Arial,sans-serif;background:linear-gradient(180deg,#050814,#0b1020);color:var(--text);display:grid;place-items:center;min-height:100vh}
+    .wrap{width:min(92vw,720px);padding:24px}
+    .card{background:rgba(17,26,51,.92);border:1px solid rgba(124,247,194,.2);border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    h1{margin:0 0 8px;font-size:clamp(28px,4vw,42px)}
+    p{margin:6px 0 14px;opacity:.9;line-height:1.4}
+    .top{display:flex;gap:14px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+    .stats{display:flex;gap:14px;flex-wrap:wrap;font-weight:600}
+    canvas{width:100%;height:auto;display:block;background:#050814;border-radius:14px;border:1px solid rgba(255,255,255,.08)}
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    button{background:var(--accent);border:none;color:#08101f;padding:10px 14px;border-radius:999px;font-weight:700;cursor:pointer}
+    button.secondary{background:#1f2b4d;color:var(--text);border:1px solid rgba(255,255,255,.12)}
+    .hint{font-size:14px;opacity:.8}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div>
+          <h1>Snake</h1>
+          <p>Coma as frutas, cresça e não bata na parede nem no próprio corpo.</p>
+        </div>
+        <div class="stats"><span>Pontos: <span id="score">0</span></span><span id="status">Pronto</span></div>
+      </div>
+      <canvas id="game" width="600" height="600"></canvas>
+      <div class="controls">
+        <button id="startBtn">Jogar</button>
+        <button class="secondary" id="restartBtn">Reiniciar</button>
+      </div>
+      <p class="hint">Use as setas do teclado ou WASD. No celular, deslize na direção desejada.</p>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const statusEl = document.getElementById('status');
+const grid = 24;
+const size = canvas.width / grid;
+let snake, dir, nextDir, food, score, running, over, tick;
+
+function reset(){
+  snake = [{x:12,y:12},{x:11,y:12},{x:10,y:12}];
+  dir = {x:1,y:0}; nextDir = dir;
+  food = spawnFood(); score = 0; running = false; over = false;
+  scoreEl.textContent = score; statusEl.textContent = 'Pronto';
+  draw();
+}
+
+function spawnFood(){
+  let f;
+  do { f = {x:Math.floor(Math.random()*grid), y:Math.floor(Math.random()*grid)}; }
+  while (snake && snake.some(s => s.x===f.x && s.y===f.y));
+  return f;
+}
+
+function drawCell(x,y,color){
+  ctx.fillStyle=color;
+  ctx.fillRect(x*size+2,y*size+2,size-4,size-4);
+}
+
+function draw(){
+  ctx.fillStyle='#050814';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<grid;i++) for(let j=0;j<grid;j++){
+    ctx.fillStyle=((i+j)%2===0)?'#09102a':'#070d22';
+    ctx.fillRect(i*size,j*size,size,size);
+  }
+  drawCell(food.x,food.y,'#ff6b6b');
+  snake.forEach((s,i)=>drawCell(s.x,s.y,i===0?'#7cf7c2':'#3be4a3'));
+  if(over){
+    ctx.fillStyle='rgba(0,0,0,.55)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#fff';
+    ctx.font='bold 40px system-ui';
+    ctx.textAlign='center';
+    ctx.fillText('Fim de jogo', canvas.width/2, canvas.height/2-10);
+    ctx.font='18px system-ui';
+    ctx.fillText('Clique em Reiniciar', canvas.width/2, canvas.height/2+28);
+  }
+}
+
+function step(){
+  if(!running || over) return;
+  dir = nextDir;
+  const head = {x:snake[0].x + dir.x, y:snake[0].y + dir.y};
+  if(head.x<0||head.y<0||head.x>=grid||head.y>=grid||snake.some(s=>s.x===head.x&&s.y===head.y)){
+    over = true; statusEl.textContent = 'Game over'; draw(); return;
+  }
+  snake.unshift(head);
+  if(head.x===food.x && head.y===food.y){
+    score++; scoreEl.textContent = score; food = spawnFood(); statusEl.textContent = 'Jogando';
+  } else snake.pop();
+  draw();
+}
+
+function start(){
+  if(!running){ running = true; statusEl.textContent='Jogando'; tick = setInterval(step, 110); }
+}
+function restart(){ clearInterval(tick); reset(); start(); }
+function setDir(x,y){ if(dir.x===-x && dir.y===-y) return; nextDir = {x,y}; }
+
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if(k==='arrowup'||k==='w') setDir(0,-1);
+  if(k==='arrowdown'||k==='s') setDir(0,1);
+  if(k==='arrowleft'||k==='a') setDir(-1,0);
+  if(k==='arrowright'||k==='d') setDir(1,0);
+  if(k===' ') start();
+});
+
+let t0=null;
+canvas.addEventListener('touchstart', e => { t0 = e.changedTouches[0]; }, {passive:true});
+canvas.addEventListener('touchend', e => {
+  if(!t0) return;
+  const t1 = e.changedTouches[0];
+  const dx = t1.clientX - t0.clientX, dy = t1.clientY - t0.clientY;
+  if(Math.max(Math.abs(dx),Math.abs(dy)) < 20) return;
+  if(Math.abs(dx) > Math.abs(dy)) setDir(dx>0?1:-1,0); else setDir(0,dy>0?1:-1);
+}, {passive:true});
+
+document.getElementById('startBtn').onclick = start;
+document.getElementById('restartBtn').onclick = restart;
+reset();
+</script>
+</body>
+</html>
